@@ -2,6 +2,14 @@
   "name": "fivem-nui-react",
   "version": "1.1.0",
   "description": "React hooks and utilities for FiveM NUI development",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TGIANN/fivem-nui-react.git"
+  },
+  "homepage": "https://github.com/TGIANN/fivem-nui-react#readme",
+  "bugs": {
+    "url": "https://github.com/TGIANN/fivem-nui-react/issues"
+  },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -26,7 +34,7 @@
     "hooks",
     "cfx"
   ],
-  "author": "",
+  "author": "TGIANN (tgiann.com)",
   "license": "MIT",
   "type": "commonjs",
   "peerDependencies": {

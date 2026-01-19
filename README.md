@@ -10,12 +10,32 @@ npm install fivem-nui-react
 
 ## Features
 
-- `useNuiEvent` - Listen for NUI messages from FiveM client
-- `fetchNui` - Send requests to FiveM client and receive responses
-- `useNuiCallback` - Hook for NUI requests with loading/error states and callback
-- `useSendNui` - Hook for sending data without expecting a response
-- `isEnvBrowser` - Check if running in browser (debug mode)
-- Mock data support for browser testing
+```tsx
+// Listen for NUI messages from FiveM client
+useNuiEvent("eventName", (data) => {});
+
+// Send request and get response
+const data = await fetchNui("eventName", { payload });
+
+// Hook with loading/error states and callback
+const [fetch, { loading, error }] = useNuiCallback("eventName", (data) => {});
+
+// Send data without expecting response
+const [send, { loading, error }] = useSendNui("eventName");
+
+// Check if running in browser (debug mode)
+if (isEnvBrowser()) {}
+```
+
+```lua
+-- Send message from FiveM client to UI
+SendNUIMessage({ action = "eventName", data = { key = "value" } })
+
+-- Register callback for UI requests
+RegisterNUICallback("eventName", function(data, cb)
+  cb({ response = "data" })
+end)
+```
 
 ## API
 
@@ -129,6 +149,15 @@ function PlayerInfo() {
 
   return <div>{player?.name}</div>;
 }
+```
+
+**FiveM Client (Lua):**
+
+```lua
+RegisterNUICallback("getPlayerData", function(data, cb)
+  local playerId = data.id
+  cb({ name = "John", level = 10 })
+end)
 ```
 
 ---
