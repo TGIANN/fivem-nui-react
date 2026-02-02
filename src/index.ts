@@ -20,6 +20,7 @@ export interface UseNuiEventOptions<T = unknown> {
 export interface FetchNuiOptions<T = unknown> {
   mockData?: T;
   mockDelay?: number;
+  signal?: AbortSignal;
 }
 
 /**
@@ -79,7 +80,7 @@ export function useNuiEvent<T = unknown>(
  * Sends a request to NUI callback (fivem client)
  * @param eventName - The callback event name
  * @param data - Data to send
- * @param options - Options for mock data in browser mode
+ * @param options - Options for mock data and abort signal in browser mode
  * @returns Promise<T> - Response from fivem client
  * @example
  * const result = await fetchNui("getPlayerData", { id: 1 }, {
@@ -106,9 +107,24 @@ export async function fetchNui<T = unknown, D = unknown>(
       "Content-Type": "application/json; charset=UTF-8",
     },
     body: JSON.stringify(data ?? {}),
+    signal: options?.signal,
   });
 
-  return response.json() as Promise<T>;
+  if (!response.ok) {
+    throw new Error(`NUI request failed: ${eventName} (${response.status})`);
+  }
+
+  const text = await response.text();
+
+  if (!text || text.length === 0) {
+    return null as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null as T;
+  }
 }
 
 export interface UseNuiCallbackOptions<T = unknown> {
@@ -155,23 +171,50 @@ export function useNuiCallback<T = unknown, D = unknown>(
   });
 
   const callbackRef = useRef(callback);
+  const mountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const fetch = useCallback(
     async (data?: D): Promise<T> => {
-      setState({ loading: true, error: null });
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      if (mountedRef.current) {
+        setState({ loading: true, error: null });
+      }
 
       try {
-        const result = await fetchNui<T, D>(eventName, data, options);
-        callbackRef.current(result);
-        setState({ loading: false, error: null });
+        const result = await fetchNui<T, D>(eventName, data, {
+          ...options,
+          signal: controller.signal,
+        });
+
+        if (!controller.signal.aborted && mountedRef.current) {
+          callbackRef.current(result);
+          setState({ loading: false, error: null });
+        }
         return result;
       } catch (err) {
+        if (controller.signal.aborted) {
+          throw err;
+        }
         const error = err instanceof Error ? err : new Error(String(err));
-        setState({ loading: false, error });
+        if (mountedRef.current) {
+          setState({ loading: false, error });
+        }
         throw error;
       }
     },
@@ -213,9 +256,26 @@ export function useSendNui<D = unknown>(
     error: null,
   });
 
+  const mountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const send = useCallback(
     async (data?: D): Promise<void> => {
-      setState({ loading: true, error: null });
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      if (mountedRef.current) {
+        setState({ loading: true, error: null });
+      }
 
       try {
         if (isEnvBrowser()) {
@@ -228,12 +288,18 @@ export function useSendNui<D = unknown>(
               "Content-Type": "application/json; charset=UTF-8",
             },
             body: JSON.stringify(data ?? {}),
+            signal: controller.signal,
           });
         }
-        setState({ loading: false, error: null });
+        if (!controller.signal.aborted && mountedRef.current) {
+          setState({ loading: false, error: null });
+        }
       } catch (err) {
+        if (controller.signal.aborted) return;
         const error = err instanceof Error ? err : new Error(String(err));
-        setState({ loading: false, error });
+        if (mountedRef.current) {
+          setState({ loading: false, error });
+        }
         throw error;
       }
     },

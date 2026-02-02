@@ -24,7 +24,7 @@ const [fetch, { loading, error }] = useNuiCallback("eventName", (data) => {});
 const [send, { loading, error }] = useSendNui("eventName");
 
 // Check if running in browser (debug mode)
-if (isEnvBrowser()) {}
+if (isEnvBrowser())
 ```
 
 ```lua
@@ -59,11 +59,10 @@ import { useNuiEvent } from "fivem-nui-react";
 function App() {
   const [visible, setVisible] = useState(false);
 
-  useNuiEvent<{ show: boolean }>(
-    "toggleUI",
-    (data) => setVisible(data.show),
-    { mockData: { show: true }, mockDelay: 1000 }
-  );
+  useNuiEvent<{ show: boolean }>("toggleUI", (data) => setVisible(data.show), {
+    mockData: { show: true },
+    mockDelay: 1000,
+  });
 
   return visible ? <div>UI Content</div> : null;
 }
@@ -88,7 +87,7 @@ Send a request to the FiveM client and receive a response.
 fetchNui<T, D>(
   eventName: string,
   data?: D,
-  options?: { mockData?: T; mockDelay?: number }
+  options?: { mockData?: T; mockDelay?: number; signal?: AbortSignal }
 ): Promise<T>
 ```
 
@@ -97,10 +96,31 @@ fetchNui<T, D>(
 ```tsx
 import { fetchNui } from "fivem-nui-react";
 
-const player = await fetchNui<PlayerData>("getPlayerData", { id: 1 }, {
-  mockData: { name: "John", level: 10 },
-  mockDelay: 500
-});
+const player = await fetchNui<PlayerData>(
+  "getPlayerData",
+  { id: 1 },
+  {
+    mockData: { name: "John", level: 10 },
+    mockDelay: 500,
+  },
+);
+```
+
+**With AbortController:**
+
+```tsx
+const controller = new AbortController();
+
+const player = await fetchNui<PlayerData>(
+  "getPlayerData",
+  { id: 1 },
+  {
+    signal: controller.signal,
+  },
+);
+
+// Cancel the request
+controller.abort();
 ```
 
 **FiveM Client (Lua):**
@@ -137,7 +157,7 @@ function PlayerInfo() {
   const [fetchPlayer, { loading, error }] = useNuiCallback<PlayerData>(
     "getPlayerData",
     (data) => setPlayer(data),
-    { mockData: { name: "John", level: 10 }, mockDelay: 500 }
+    { mockData: { name: "John", level: 10 }, mockDelay: 500 },
   );
 
   useEffect(() => {
@@ -182,7 +202,10 @@ function CloseButton() {
   const [closeUI, { loading }] = useSendNui<{ reason: string }>("closeUI");
 
   return (
-    <button onClick={() => closeUI({ reason: "user_clicked" })} disabled={loading}>
+    <button
+      onClick={() => closeUI({ reason: "user_clicked" })}
+      disabled={loading}
+    >
       Close
     </button>
   );
@@ -218,12 +241,14 @@ if (isEnvBrowser()) {
 
 All hooks support mock data for testing in browser without FiveM:
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `mockData` | Data to return in browser mode | - |
-| `mockDelay` | Delay in ms before returning | 500 |
+| Option      | Description                                            | Default |
+| ----------- | ------------------------------------------------------ | ------- |
+| `mockData`  | Data to return in browser mode                         | -       |
+| `mockDelay` | Delay in ms before returning                           | 500     |
+| `signal`    | AbortSignal for request cancellation (`fetchNui` only) | -       |
 
 When `isEnvBrowser()` is `true`:
+
 - `useNuiEvent` triggers handler with `mockData` after delay
 - `fetchNui` returns `mockData` after delay
 - `useNuiCallback` calls callback with `mockData` after delay
@@ -246,14 +271,20 @@ interface PlayerRequest {
 }
 
 // Typed response
-const player = await fetchNui<PlayerData, PlayerRequest>("getPlayer", { id: 1 });
+const player = await fetchNui<PlayerData, PlayerRequest>("getPlayer", {
+  id: 1,
+});
 
 // Typed callback
 const [fetchPlayer, { loading }] = useNuiCallback<PlayerData, PlayerRequest>(
   "getPlayer",
-  (data) => console.log(data.name)
+  (data) => console.log(data.name),
 );
 ```
+
+## Note
+
+Most of the code in this project was written by AI and then manually reviewed and edited.
 
 ## License
 
